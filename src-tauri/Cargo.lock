@@ -3028,8 +3028,10 @@ dependencies = [
 name = "signalume"
 version = "0.1.0"
 dependencies = [
+ "jni",
  "serde",
  "serde_json",
+ "tao",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",

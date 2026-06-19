@@ -1,18 +1,27 @@
 # 📡 Signalume
 
-A cyber-compass and signal detector mobile app with a Tokyo Night / retro-cyberpunk aesthetic.
+A directional signal finder: turn the phone slowly and an arrow points toward the
+strongest signal, so you can find the best spot to stand (or place a router).
 
-Built with **SvelteKit (Svelte 5)**, **Tauri v2**, and a fully client-side UI. Currently a
-**prototype**: the radar, compass heading, signal metrics, and terminal log stream are all
-simulated on the frontend (mock data + intervals) — no live backend or network calls required.
+Built with **SvelteKit (Svelte 5)** + **Tauri v2** (Android target).
+
+- **Compass heading** is real — read from the phone's magnetometer.
+- **Wi-Fi signal strength (dBm)** is real on Android when you're connected to a
+  network — read live from the system `WifiManager` over JNI (`src-tauri/src/lib.rs`).
+  As you turn, the app keeps the strongest RSSI per heading and points the arrow that way.
+- With no Wi-Fi connection (or on desktop) it falls back to a clearly-labelled **demo**
+  signal field so the interaction is still visible. Cellular / ping / speed are estimates
+  derived from the signal level, not separate measurements.
 
 ## ✨ Features
 
-- 🧭 **Cyber-Compass & Radar** — a continuously sweeping HTML Canvas radar that spawns
-  temporary neon blips, with a live simulated heading in the center.
-- 📊 **Live Signal Metrics** — animated Wi-Fi / Cellular strength bars plus ping & throughput
-  readouts that jitter realistically.
-- 📜 **Terminal Log Stream** — an auto-scrolling terminal panel pushing mock system logs.
+- 🧭 **Directional finder** — an instrument-style dial with degree ticks; one arrow always
+  points to the strongest measured direction, with plain-language "turn left / right / you're
+  facing it" guidance.
+- 📍 **Saved spots** — pin places as you walk; the list ranks them strongest-first and stars the best.
+- 🎨 **8 field-instrument themes** — Beacon, Tide, Phosphor, Blueprint, Ranger, Night Ops, Paper, Graphite.
+- ⚙️ **Detailed settings** — collapsible sections for appearance, display (show/hide each element),
+  behaviour (smoothing, haptics, keep-awake) and data.
 
 ## 🛠️ Tech Stack
 

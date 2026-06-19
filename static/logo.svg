@@ -1,0 +1,41 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Deep ink background, subtly lit from the beacon -->
+    <radialGradient id="bg" cx="50%" cy="68%" r="75%">
+      <stop offset="0%" stop-color="#20242d"/>
+      <stop offset="55%" stop-color="#171a21"/>
+      <stop offset="100%" stop-color="#101218"/>
+    </radialGradient>
+    <!-- The "lume": warm glow rising from the beacon source -->
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#e0a04a" stop-opacity="0.55"/>
+      <stop offset="45%" stop-color="#e0a04a" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#e0a04a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="arc" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0b865"/>
+      <stop offset="100%" stop-color="#d98f3a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded-square plate -->
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <rect x="8" y="8" width="1008" height="1008" rx="218" fill="none" stroke="#ffffff" stroke-opacity="0.05" stroke-width="2"/>
+
+  <!-- Lume halo behind the signal -->
+  <circle cx="512" cy="690" r="430" fill="url(#glow)"/>
+
+  <!-- Signal domes radiating from the beacon (round caps = soft, field-instrument feel) -->
+  <g stroke="url(#arc)" stroke-linecap="round" fill="none">
+    <path d="M 397 620 A 140 140 0 0 1 627 620" stroke-width="34" stroke-opacity="1"/>
+    <path d="M 307 562 A 250 250 0 0 1 717 562" stroke-width="34" stroke-opacity="0.66"/>
+    <path d="M 217 503 A 360 360 0 0 1 807 503" stroke-width="34" stroke-opacity="0.34"/>
+  </g>
+
+  <!-- Beacon source -->
+  <circle cx="512" cy="700" r="40" fill="#f4c074"/>
+  <circle cx="512" cy="700" r="40" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="3"/>
+
+  <!-- Faint compass tick under the source, grounding it as an instrument -->
+  <line x1="512" y1="772" x2="512" y2="812" stroke="#ffffff" stroke-opacity="0.18" stroke-width="6" stroke-linecap="round"/>
+</svg>
