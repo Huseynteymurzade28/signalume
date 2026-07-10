@@ -16,6 +16,10 @@ val tauriProperties = Properties().apply {
 android {
     compileSdk = 36
     namespace = "com.flear.signalume"
+    // AAPT2's default pattern ignores "_*" dirs, which breaks SvelteKit's _app output.
+    aaptOptions {
+        ignoreAssetsPattern = "!.svn:!.cvs:!.DS_Store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~"
+    }
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         applicationId = "com.flear.signalume"

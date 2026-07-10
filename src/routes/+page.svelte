@@ -200,18 +200,20 @@
   let bestBearing = 47;            // "strongest direction" — measured (real) or drifting (sim)
   let qNoise = $state(0);          // small smoothed measurement noise (sim only)
 
-  // Signal source state, fed by the native `wifi_reading` command on Android.
+  // Signal source state, fed by the native `signal_reading` command on Android.
   //   "demo" — desktop/browser preview only (simulated field, clearly labelled)
-  //   "real" — connected to Wi-Fi, showing live RSSI
-  //   "none" — on a device but no Wi-Fi signal: show an honest empty state,
-  //            never a fake signal.
-  let signalMode = $state<"demo" | "real" | "none">("demo");
-  let usingRealSignal = $derived(signalMode === "real");
+  //   "wifi" — connected to Wi-Fi, showing live RSSI
+  //   "cell" — no Wi-Fi but mobile data active, showing cellular dBm
+  //   "none" — on a device but no signal at all: honest empty state, never fake.
+  let signalMode = $state<"demo" | "wifi" | "cell" | "none">("demo");
+  let usingRealSignal = $derived(signalMode === "wifi" || signalMode === "cell");
   let noSignal = $derived(signalMode === "none");
-  let rssiDbm = $state(0);
-  // Map a connected-AP RSSI (dBm) onto the 0..100 quality scale used everywhere
-  // else: −90 dBm → unusable, −40 dBm → excellent.
+  let rssiDbm = $state(0);   // active dBm (wifi or cell, whichever is current)
+  let cellRssiDbm = $state(0); // raw cell dBm even when wifi is primary
+  // Wi-Fi RSSI → 0..100: −90 dBm → unusable, −40 dBm → excellent.
   const rssiToQuality = (dbm: number) => clamp(Math.round((dbm + 90) * 2), 2, 99);
+  // Cellular RSRP → 0..100: −120 dBm → unusable, −80 dBm → excellent.
+  const cellToQuality = (dbm: number) => clamp(Math.round((dbm + 120) * 2.5), 2, 99);
   // Best RSSI measured per 15° heading bucket — this is how the arrow learns
   // which real direction is strongest as you turn.
   let realSamples = new Map<number, number>();
@@ -219,7 +221,8 @@
   // Raw quality 0..100. Real mode reads the live RSSI; sim mode peaks when the
   // phone faces bestBearing and dips facing away.
   let qualityRaw = $derived.by(() => {
-    if (signalMode === "real") return rssiToQuality(rssiDbm);
+    if (signalMode === "wifi") return rssiToQuality(rssiDbm);
+    if (signalMode === "cell") return cellToQuality(rssiDbm);
     if (signalMode === "none") return 0;
     return clamp(Math.round(
       50 + 47 * Math.cos((angDiff(heading, bestBearing) * Math.PI) / 180) + qNoise
@@ -263,11 +266,13 @@
     wasAligned = a;
   });
 
-  // Friendly technical readouts. Wi-Fi dBm is the real RSSI when connected;
-  // the rest are estimates derived from the quality value so they agree with
-  // the meter. Shown only on request.
-  let wifiDbm = $derived(usingRealSignal ? rssiDbm : Math.round(-92 + quality * 0.5));
-  let cellDbm = $derived(Math.round(-100 + quality * 0.4));  // -100 .. -60
+  // Friendly technical readouts. Real dBm shown when connected; estimates when
+  // in demo mode so the numbers agree with the meter. Shown only on request.
+  let wifiDbm = $derived(signalMode === "wifi" ? rssiDbm : Math.round(-92 + quality * 0.5));
+  let cellDbm = $derived(
+    signalMode === "cell" ? rssiDbm :
+    (cellRssiDbm < 0 ? cellRssiDbm : Math.round(-100 + quality * 0.4))
+  );
   let cellPct = $derived(clamp(quality - 14, 0, 100));
   let pingMs = $derived(Math.round(58 - quality * 0.46));    // ~13 .. 56
   let speedMb = $derived(Math.round(8 + quality * 0.85));    // ~10 .. 92
@@ -461,42 +466,55 @@
       bestBearing = (bestBearing + (Math.random() - 0.5) * 6 + 360) % 360;
     }, 7000);
 
-    // Poll the native Wi-Fi RSSI (Android only). Connected → real data; as the
-    // phone turns we keep the strongest RSSI seen per heading bucket and point
-    // the arrow at whichever direction measured best. On a device with no
-    // connection we show an honest "no signal" state — never a fake signal.
-    // The simulated field is reserved for desktop/browser preview.
-    let wifiPoll: any = 0;
+    // Poll native Wi-Fi + cellular RSSI in one call (Android only). Priority:
+    // Wi-Fi → cell → none. As the phone turns we track the peak RSSI per 15°
+    // bucket and point the arrow at the direction that measured strongest.
+    // Desktop Tauri falls back to the labelled demo mode.
+    let signalPoll: any = 0;
     const hasNative = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-    signalMode = hasNative ? "none" : "demo"; // assume no signal until first read
-    const pollWifi = async () => {
+    signalMode = hasNative ? "none" : "demo";
+
+    function trackBearing(rssi: number) {
+      const bucket = (Math.round(heading / 15) * 15 + 360) % 360;
+      const prev = realSamples.get(bucket);
+      realSamples.set(bucket, prev == null ? rssi : Math.max(prev - 1, rssi));
+      let bb = bucket, bv = -999;
+      for (const [k, v] of realSamples) if (v > bv) { bv = v; bb = k; }
+      bestBearing = bb;
+    }
+
+    const pollSignal = async () => {
       try {
-        const r = await invoke<{ rssi: number; connected: boolean }>("wifi_reading");
-        if (r.connected) {
-          if (signalMode !== "real") realSamples.clear(); // fresh start on (re)connect
-          rssiDbm = r.rssi;
-          signalMode = "real";
-          const bucket = (Math.round(heading / 15) * 15 + 360) % 360;
-          const prev = realSamples.get(bucket);
-          // Track the *peak* per bucket — the best you could get facing that way.
-          realSamples.set(bucket, prev == null ? r.rssi : Math.max(prev - 1, r.rssi));
-          let bb = bucket, bv = -999;
-          for (const [k, v] of realSamples) if (v > bv) { bv = v; bb = k; }
-          bestBearing = bb;
+        const r = await invoke<{
+          wifi_rssi: number; wifi_connected: boolean;
+          cell_rssi: number; cell_connected: boolean;
+        }>("signal_reading");
+
+        if (r.wifi_connected) {
+          if (signalMode !== "wifi") realSamples.clear();
+          rssiDbm = r.wifi_rssi;
+          cellRssiDbm = r.cell_connected ? r.cell_rssi : 0;
+          signalMode = "wifi";
+          trackBearing(r.wifi_rssi);
+        } else if (r.cell_connected) {
+          if (signalMode !== "cell") realSamples.clear();
+          rssiDbm = r.cell_rssi;
+          cellRssiDbm = r.cell_rssi;
+          signalMode = "cell";
+          trackBearing(r.cell_rssi);
         } else {
-          signalMode = "none"; // associated to nothing → honest empty state
+          signalMode = "none";
         }
       } catch (e) {
-        // Desktop Tauri (command returns "only available on Android") → preview.
         if (String(e).includes("only available on Android")) {
           signalMode = "demo";
-          if (wifiPoll) { clearInterval(wifiPoll); wifiPoll = 0; }
+          if (signalPoll) { clearInterval(signalPoll); signalPoll = 0; }
         } else {
-          signalMode = "none"; // a real read error → don't fake a signal
+          signalMode = "none";
         }
       }
     };
-    if (hasNative) { pollWifi(); wifiPoll = setInterval(pollWifi, 700); }
+    if (hasNative) { pollSignal(); signalPoll = setInterval(pollSignal, 700); }
 
     // Gentle, smaller measurement noise on the quality reading.
     const noiseTimer = setInterval(() => {
@@ -511,7 +529,7 @@
       clearInterval(easeTimer);
       clearInterval(driftTimer);
       clearInterval(noiseTimer);
-      if (wifiPoll) clearInterval(wifiPoll);
+      if (signalPoll) clearInterval(signalPoll);
       clearTimeout(toastTimer);
     };
   });
@@ -535,8 +553,9 @@
     <div class="finder-head">
       <span class="scan-state" class:live={usingRealSignal} class:warn={noSignal}>
         <span class="scan-dot"></span>
-        {#if usingRealSignal}Live Wi-Fi · {rssiDbm} dBm
-        {:else if noSignal}No Wi-Fi — connect to scan
+        {#if signalMode === "wifi"}Live Wi-Fi · {rssiDbm} dBm
+        {:else if signalMode === "cell"}Live Cellular · {rssiDbm} dBm
+        {:else if noSignal}No signal — connect to Wi-Fi or mobile data
         {:else}Demo signal — turn slowly{/if}
       </span>
       <button class="link tiny" onclick={() => (aboutOpen = true)}>How it works</button>
@@ -548,7 +567,7 @@
         {#if noSignal}
           <div class="q-cap">SIGNAL</div>
           <div class="q-label none">No signal</div>
-          <div class="q-sub">Connect to Wi-Fi to scan</div>
+          <div class="q-sub">Connect to Wi-Fi or mobile data</div>
           {#if settings.showReadout}
             <div class="q-head">{Math.round(shownHeading)}° {cardinal}</div>
           {/if}
@@ -573,7 +592,7 @@
         <span class="guide-arrow">⚠</span>
         <span class="guide-text">
           <b>No signal source</b>
-          <small>Connect to a Wi-Fi network, then turn slowly to scan</small>
+          <small>Connect to a Wi-Fi network or enable mobile data, then turn slowly to scan</small>
         </span>
       </div>
     {:else}
@@ -685,9 +704,9 @@
 
       <div class="callout">
         <b>What's real, what's not.</b>
-        <p><b>Real:</b> the compass heading (phone magnetometer) and — when you're connected to Wi-Fi on Android — the <b>signal strength in dBm</b>, read live from the system. The dial then points to whichever direction you measured the strongest signal. The finder reads <b>Live Wi-Fi</b> when this is active.</p>
-        <p><b>Estimated:</b> cellular dBm, ping and speed are derived from the signal level, not separate measurements.</p>
-        <p><b>No signal?</b> With no Wi-Fi connection the app says so plainly and waits — it won't invent a reading. (On desktop it shows a labelled demo so you can preview the interaction.)</p>
+        <p><b>Real:</b> the compass heading (phone magnetometer) and — when on Android — the <b>signal strength in dBm</b>, read live from the system. Wi-Fi is preferred; if there's no Wi-Fi the app falls back to <b>mobile data (cellular)</b>. The dial points to the strongest measured direction. The finder reads <b>Live Wi-Fi</b> or <b>Live Cellular</b> when active.</p>
+        <p><b>Estimated:</b> ping and speed are derived from the signal level, not separate measurements.</p>
+        <p><b>No signal?</b> With no Wi-Fi and no mobile data the app says so plainly and waits — it won't invent a reading. (On desktop it shows a labelled demo so you can preview the interaction.)</p>
       </div>
 
       <div class="ver">Signalume · prototype</div>
@@ -812,8 +831,8 @@
         {#if openSection === "data"}
           <div class="acc-body">
             <p class="set-note">
-              The compass is real; signal strength is a <b>simulated</b> field for
-              now. <button class="link" onclick={() => { settingsOpen = false; aboutOpen = true; }}>See how the scan works</button>.
+              Signal strength is live when connected to <b>Wi-Fi</b> or <b>mobile data</b>.
+              <button class="link" onclick={() => { settingsOpen = false; aboutOpen = true; }}>See how the scan works</button>.
             </p>
             <button class="danger" onclick={() => clearPins()}>Clear saved spots</button>
             <button class="danger soft" onclick={() => { settings = { ...DEFAULTS }; showToast("Settings reset"); }}>
