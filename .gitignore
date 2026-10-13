@@ -17,3 +17,11 @@ vite.config.ts.timestamp-*
 # OS
 .DS_Store
 Thumbs.db
+
+# Android build output — web assets are copied in from /build before each
+# APK build, and APKs/AABs are shared by hand, never committed.
+src-tauri/gen/android/app/src/main/assets/
+/apk/
+*.apk
+*.aab
+*.idsig
