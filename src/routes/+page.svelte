@@ -101,11 +101,17 @@
     },
   };
   const THEME_GROUPS = ["Signal", "Field", "Daylight"] as const;
+  // "#e0a04a" → "224,160,74". CSS tints use rgba(var(--x-rgb), a) instead of
+  // the colour-mixing function, which older Android WebViews don't support.
+  const rgb = (hex: string) =>
+    [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",");
   const themeVars = (id: ThemeId) => {
     const v = THEMES[id].vars;
     return `--bg:${v.bg};--surface:${v.surface};--surface-2:${v.surface2};--line:${v.line};` +
       `--text:${v.text};--muted:${v.muted};--accent:${v.accent};` +
-      `--good:${v.good};--fair:${v.fair};--weak:${v.weak};`;
+      `--good:${v.good};--fair:${v.fair};--weak:${v.weak};` +
+      `--text-rgb:${rgb(v.text)};--bg-rgb:${rgb(v.bg)};--accent-rgb:${rgb(v.accent)};` +
+      `--good-rgb:${rgb(v.good)};--weak-rgb:${rgb(v.weak)};`;
   };
 
   // ── Settings (persisted) ──────────────────────────────────────────────
@@ -1059,7 +1065,7 @@
   /* Natural document scroll — the most reliable way to reach lower content on
      a phone. (A fixed-height + inner overflow layout failed in the webview.) */
   :global(body) {
-    min-height: 100dvh;
+    min-height: 100vh; min-height: 100dvh;
     transition: background 0.3s ease;
     -webkit-tap-highlight-color: transparent;
     -webkit-user-select: none; user-select: none;
@@ -1073,14 +1079,14 @@
     --f-ui: "Barlow", ui-sans-serif, system-ui, sans-serif;
     --f-head: "Barlow Condensed", "Barlow", ui-sans-serif, sans-serif;
     --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
-    --edge: color-mix(in srgb, var(--text) 16%, transparent);
-    --mark: color-mix(in srgb, var(--text) 55%, transparent);
+    --edge: rgba(var(--text-rgb),0.16);
+    --mark: rgba(var(--text-rgb),0.55);
     --cham: 10px;
   }
   .app {
     --tabbar-h: 62px;
     --top-h: 58px;
-    min-height: 100dvh;
+    min-height: 100vh; min-height: 100dvh;
     width: 100%;
     box-sizing: border-box;
     display: flex;
@@ -1152,9 +1158,9 @@
   .src .led { padding: 0; width: 7px; margin: 0 0 0 10px; }
   .src-k { border-right: 1px solid var(--edge); color: var(--muted); }
   .src-v { color: var(--text); min-width: 38px; justify-content: center; }
-  .src.live { border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+  .src.live { border-color: rgba(var(--good-rgb),0.45); }
   .src.live .src-v { color: var(--good); }
-  .src.warn { border-color: color-mix(in srgb, var(--weak) 45%, transparent); }
+  .src.warn { border-color: rgba(var(--weak-rgb),0.45); }
   .src.warn .src-v { color: var(--weak); }
   .led {
     display: inline-block; width: 7px; height: 7px; align-self: center;
@@ -1197,7 +1203,7 @@
   /* ── Find ── */
   .find {
     /* Fill exactly one phone screen so the Mark button sits in thumb reach. */
-    min-height: calc(100dvh - var(--top-h) - var(--tabbar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    min-height: calc(100vh - var(--top-h) - var(--tabbar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom)); min-height: calc(100dvh - var(--top-h) - var(--tabbar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     box-sizing: border-box;
     justify-content: space-between;
     align-items: center;
@@ -1222,14 +1228,14 @@
 
   .dial-wrap {
     position: relative;
-    width: min(86vw, 380px, 44dvh);
+    width: min(86vw, 380px, 44vh); width: min(86vw, 380px, 44dvh);
     aspect-ratio: 1;
     container-type: inline-size;
   }
   /* Viewfinder brackets around the dial. */
   .dial-wrap::before {
     content: ""; position: absolute; inset: -6px; pointer-events: none;
-    --b: color-mix(in srgb, var(--text) 30%, transparent);
+    --b: rgba(var(--text-rgb),0.3);
     background:
       linear-gradient(var(--b), var(--b)) top left / 16px 1px no-repeat,
       linear-gradient(var(--b), var(--b)) top left / 1px 16px no-repeat,
@@ -1246,28 +1252,28 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center;
   }
   .q-cap {
-    font-family: var(--f-mono); font-size: max(9px, 3.2cqw); letter-spacing: 0.4em;
+    font-family: var(--f-mono); font-size: max(9px, 2.75vw); font-size: max(9px, 3.2cqw); letter-spacing: 0.4em;
     color: var(--muted); padding-left: 0.4em;
   }
   .q-big {
-    font-family: var(--f-mono); font-size: 19cqw; font-weight: 700; line-height: 1;
-    letter-spacing: -0.04em; font-variant-numeric: tabular-nums; margin-top: 1.2cqw;
+    font-family: var(--f-mono); font-size: 16.34vw; font-size: 19cqw; font-weight: 700; line-height: 1;
+    letter-spacing: -0.04em; font-variant-numeric: tabular-nums; margin-top: 1.03vw; margin-top: 1.2cqw;
   }
   .q-big span { font-size: 0.36em; font-weight: 500; margin-left: 0.1em; opacity: 0.7; letter-spacing: 0; }
   .q-big.none { color: var(--muted); }
   .q-label {
-    font-family: var(--f-head); font-size: max(12px, 4.6cqw); font-weight: 700;
-    letter-spacing: 0.22em; text-transform: uppercase; margin-top: 1.6cqw; color: var(--muted);
+    font-family: var(--f-head); font-size: max(12px, 3.96vw); font-size: max(12px, 4.6cqw); font-weight: 700;
+    letter-spacing: 0.22em; text-transform: uppercase; margin-top: 1.38vw; margin-top: 1.6cqw; color: var(--muted);
     padding-left: 0.22em;
   }
-  .segs { display: flex; gap: 0.9cqw; margin-top: 3cqw; }
-  .seg { width: 2.6cqw; height: 3.4cqw; min-height: 7px; background: color-mix(in srgb, var(--text) 12%, transparent); transition: background 0.25s; }
+  .segs { display: flex; gap: 0.77vw; gap: 0.9cqw; margin-top: 2.58vw; margin-top: 3cqw; }
+  .seg { width: 2.24vw; width: 2.6cqw; height: 2.92vw; height: 3.4cqw; min-height: 7px; background: rgba(var(--text-rgb),0.12); transition: background 0.25s; }
   .segs.good .seg.on { background: var(--good); }
   .segs.fair .seg.on { background: var(--fair); }
   .segs.weak .seg.on { background: var(--weak); }
   .q-head {
-    font-family: var(--f-mono); font-size: max(10px, 3.5cqw); color: var(--muted);
-    margin-top: 3cqw; font-variant-numeric: tabular-nums; letter-spacing: 0.06em;
+    font-family: var(--f-mono); font-size: max(10px, 3.01vw); font-size: max(10px, 3.5cqw); color: var(--muted);
+    margin-top: 2.58vw; margin-top: 3cqw; font-variant-numeric: tabular-nums; letter-spacing: 0.06em;
   }
   .good { color: var(--good); }
   .fair { color: var(--fair); }
@@ -1279,8 +1285,8 @@
     border: 1px solid var(--edge); background: var(--surface);
     transition: background 0.2s, border-color 0.2s;
   }
-  .guide.aligned { background: color-mix(in srgb, var(--good) 12%, var(--surface)); border-color: var(--good); }
-  .guide.warn { background: color-mix(in srgb, var(--weak) 9%, var(--surface)); border-color: color-mix(in srgb, var(--weak) 55%, transparent); }
+  .guide.aligned { background: linear-gradient(rgba(var(--good-rgb),0.12), rgba(var(--good-rgb),0.12)) var(--surface); border-color: var(--good); }
+  .guide.warn { background: linear-gradient(rgba(var(--weak-rgb),0.09), rgba(var(--weak-rgb),0.09)) var(--surface); border-color: rgba(var(--weak-rgb),0.55); }
   .guide-ico {
     width: 58px; flex-shrink: 0;
     display: grid; place-items: center;
@@ -1303,7 +1309,7 @@
     font-family: var(--f-mono); font-size: 16px; font-weight: 500;
     font-variant-numeric: tabular-nums; color: var(--accent);
   }
-  .guide.aligned .guide-deg { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); }
+  .guide.aligned .guide-deg { color: var(--good); border-color: rgba(var(--good-rgb),0.4); }
 
   .find-actions { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 9px; }
   /* Chamfered (cut-corner) primary key. */
@@ -1320,7 +1326,7 @@
   .pb-l { display: inline-flex; align-items: center; gap: 10px; }
   .pb-r {
     font-family: var(--f-mono); font-size: 12.5px; font-weight: 500; letter-spacing: 0.04em;
-    padding-left: 12px; border-left: 1px solid color-mix(in srgb, var(--bg) 35%, transparent);
+    padding-left: 12px; border-left: 1px solid rgba(var(--bg-rgb),0.35);
     align-self: stretch; display: inline-flex; align-items: center;
   }
   .primary-btn svg { width: 20px; height: 20px; stroke-width: 2.2; }
@@ -1347,8 +1353,8 @@
     color: var(--accent); background: none;
     border: 1px solid var(--accent); padding: 11px 22px; cursor: pointer;
   }
-  .ghost-btn:active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-  .best-card { border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+  .ghost-btn:active { background: rgba(var(--accent-rgb),0.14); }
+  .best-card { border-color: rgba(var(--good-rgb),0.45); }
   .best-card .p-head { color: var(--good); }
   .best-row { display: flex; align-items: center; gap: 18px; padding: 14px 16px 16px; }
   .best-q { font-family: var(--f-mono); font-size: 46px; font-weight: 700; line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
@@ -1362,7 +1368,7 @@
   }
   .spot { display: flex; align-items: center; gap: 12px; padding: 10px 6px 10px 0; min-height: 62px; box-sizing: border-box; }
   .spot + .spot { border-top: 1px solid var(--line); }
-  .spot.best { background: color-mix(in srgb, var(--good) 6%, transparent); }
+  .spot.best { background: rgba(var(--good-rgb),0.06); }
   .spot-rank {
     width: 40px; align-self: stretch; flex-shrink: 0;
     display: grid; place-items: center;
@@ -1400,7 +1406,7 @@
   .spark-box {
     position: relative; margin-top: 14px;
     border: 1px solid var(--edge);
-    background: color-mix(in srgb, var(--bg) 55%, transparent);
+    background: rgba(var(--bg-rgb),0.55);
   }
   .spark { display: block; width: 100%; height: 112px; }
   .spark .grid { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
@@ -1426,7 +1432,7 @@
   .r-label { width: 48px; flex-shrink: 0; font-size: 12px; }
   .r-val { font-family: var(--f-mono); font-size: 15px; font-weight: 500; width: 44px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
   .mini-v small { font-size: 10.5px; font-weight: 400; color: var(--muted); margin-left: 3px; }
-  .bar { flex: 1; display: block; height: 10px; background: color-mix(in srgb, var(--text) 8%, transparent); overflow: hidden; position: relative; }
+  .bar { flex: 1; display: block; height: 10px; background: rgba(var(--text-rgb),0.08); overflow: hidden; position: relative; }
   .bar.sm { flex: none; height: 4px; }
   /* Segmented meter: cut the fill into discrete ticks. */
   .bar.ticks::after {
@@ -1487,7 +1493,7 @@
     background: none; border: none; padding: 11px 14px; cursor: pointer;
   }
   .toggle + .toggle { border-top: 1px solid var(--line); }
-  .toggle:active { background: color-mix(in srgb, var(--text) 4%, transparent); }
+  .toggle:active { background: rgba(var(--text-rgb),0.04); }
   .toggle b { display: block; font-size: 15px; font-weight: 600; }
   .toggle small { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
   .chev { color: var(--muted); display: grid; }
@@ -1513,7 +1519,7 @@
   .danger {
     min-height: 48px;
     font-family: var(--f-head); font-size: 14px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--weak); background: none; border: 1px solid color-mix(in srgb, var(--weak) 55%, transparent);
+    color: var(--weak); background: none; border: 1px solid rgba(var(--weak-rgb),0.55);
     cursor: pointer;
   }
   .danger:disabled { opacity: 0.4; cursor: default; }
@@ -1541,7 +1547,7 @@
   }
   .tabbar button + button { border-left: 1px solid var(--line); }
   .tabbar svg { width: 22px; height: 22px; }
-  .tabbar button.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  .tabbar button.on { color: var(--accent); background: rgba(var(--accent-rgb),0.07); }
   .tabbar button.on::before {
     content: ""; position: absolute; top: -1px; left: 0; right: 0; height: 2px; background: var(--accent);
   }
@@ -1565,7 +1571,7 @@
   /* ── Manual sheet ── */
   .sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: flex-end; justify-content: center; z-index: 50; animation: fade 0.18s ease; }
   .sheet {
-    width: 100%; max-width: 520px; max-height: 88dvh; overflow-y: auto; box-sizing: border-box;
+    width: 100%; max-width: 520px; max-height: 88vh; max-height: 88dvh; overflow-y: auto; box-sizing: border-box;
     background: var(--bg); color: var(--text);
     border-top: 2px solid var(--accent);
     padding: 16px 18px calc(24px + env(safe-area-inset-bottom));
